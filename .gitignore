@@ -1,3 +1,8 @@
+config/MDTT_rclone_*.cfg
+.env
+.env.donotshare
+
+### Defaults below 
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]

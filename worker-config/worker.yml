@@ -1,0 +1,12 @@
+# merscopeToNas
+merscopeToNas:
+  workers:
+      - name: watermelon
+        source: /where/is/data/coming/from # Fill this in (use the parent directory of the "raw_data" and "output" directories)
+        dest: /where/is/data/coming/going # Fill this in (same as above at destination, should be mounted on merscope machine)
+      - name: honeydew
+        source: /where/is/data/coming/from # Fill this in (use the parent directory of the "raw_data" and "output" directories)
+        dest: /where/is/data/coming/going # Fill this in (same as above at destination, should be mounted on merscope machine)
+      - name: grapefruit
+        source: /where/is/data/coming/from # Fill this in (use the parent directory of the "raw_data" and "output" directories)
+        dest: /where/is/data/coming/going # Fill this in (same as above at destination, should be mounted on merscope machine)
