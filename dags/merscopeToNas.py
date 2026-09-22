@@ -100,7 +100,7 @@ def build_transfer_dag(cfg:dict):
             return (
                 "rclone check "
                 f"{path} "
-                f"{DEST}/data/{Path(path).name} "
+                f"{DEST_REMOTE}:{DEST_ROOT}/data/{Path(path).name} "
                 f"--differ {SOURCE}/RCLONE_DIFFER "
                 f"--error {SOURCE}/RCLONE_ERROR "
                 f"--config {RCLONE_CFG}"
@@ -116,15 +116,15 @@ conf = yaml.safe_load('worker-config/worker.yml')
 
 
 if __name__ == "__main__":
-    # cfg = {e:os.environ[e] for e in ENV_KEYS}
-    # build_transfer_dag(cfg)
-    print(
-    f"rclone copy "
-    f". "
-    f"coconut2.ucsd.edu:~/test "
-    # f"--sftp-user=erboone "
-    # f"--sftp-pass=1id3ylhMnEieVWmHZpQk0G5p5SKfojSGij7ziw "
-    f"--transfers 4 --checkers 8 "
-    f"--config /opt/airflow/rclone/rclone.conf "
-    "--verbose "
-    )
+    cfg = {e:os.environ[e] for e in ENV_KEYS}
+    build_transfer_dag(cfg)
+    # print(
+    # f"rclone copy "
+    # f". "
+    # f"coconut2.ucsd.edu:~/test "
+    # # f"--sftp-user=erboone "
+    # # f"--sftp-pass=1id3ylhMnEieVWmHZpQk0G5p5SKfojSGij7ziw "
+    # f"--transfers 4 --checkers 8 "
+    # f"--config /opt/airflow/rclone/rclone.conf "
+    # "--verbose "
+    # )
