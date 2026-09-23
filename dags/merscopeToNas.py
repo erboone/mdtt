@@ -11,7 +11,7 @@ from airflow.sdk import DAG, task
 from common.transfer_utils import *
 
 ENV_KEYS = [
-    'WORKER_NAME'
+    'WORKER_NAME',
     'SOURCE_ROOT', 
     'DEST_REMOTE',
     'DEST_ROOT',
@@ -55,7 +55,7 @@ def build_transfer_dag(cfg:dict):
             from pathlib import Path
             data_dirs = Path(f"{SOURCE}/merfish_raw_data").glob("*")
             outs_dirs = Path(f"{SOURCE}/merfish_output").glob("*")
-            logger.log()
+            logger.log(logging.INFO, 'testing logging')
             check = lambda d: (d / "MERSCOPETONAS").exists()
 
 
@@ -80,6 +80,8 @@ def build_transfer_dag(cfg:dict):
                 f"--config {RCLONE_CFG}"
             )
 
+
+        
         @task.bash(task_id="rclone_transfer_output", queue=f"merscopeToNas_{WORKER_NAME}")
         def transfer_output(path):
 
@@ -111,13 +113,12 @@ def build_transfer_dag(cfg:dict):
         
         return dag
 
-
-conf = yaml.safe_load('worker-config/worker.yml')
-
+cfg = {e:os.environ[e] for e in ENV_KEYS}
+dags = build_transfer_dag(cfg)
 
 if __name__ == "__main__":
-    cfg = {e:os.environ[e] for e in ENV_KEYS}
-    build_transfer_dag(cfg)
+    for dag in build_transfer_dag():
+        dag.test()
     # print(
     # f"rclone copy "
     # f". "
