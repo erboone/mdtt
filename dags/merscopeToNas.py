@@ -43,8 +43,6 @@ def build_transfer_dag(cfg:dict):
         schedule="0 2 * * *",
         start_date=pendulum.datetime(2026, 1, 1, tz="UTC"),
         catchup=False,
-        max_active_runs=1,
-        max_queued_runs=1,
         tags=["file-transfer", "merscopeToNas"],
     ) as dag:
 
