@@ -61,8 +61,6 @@ def build_transfer_dag(cfg:dict):
                 [{"output_path": d["Path"]} for d in outs_dirs if check(d)],
             )
 
-        discover = list_new_dir()
-
         @task.bash(task_id="rclone_transfer_data", queue=f"merscopeToNas_{WORKER_NAME}")
         def transfer_data(path):
 
@@ -93,20 +91,24 @@ def build_transfer_dag(cfg:dict):
                 f"--config {RCLONE_CFG}"
             )
 
-        @task.bash(task_id="rclone_verify", queue=f"merscopeToNas_{WORKER_NAME}")
-        def verify(path):
+        # @task.bash(task_id="rclone_verify", queue=f"merscopeToNas_{WORKER_NAME}")
+        # def verify(path):
 
-            return (
-                "rclone check "
-                f"{path} "
-                f"{DEST_REMOTE}:{DEST_ROOT}/data/{Path(path).name} "
-                f"--differ {SOURCE}/RCLONE_DIFFER "
-                f"--error {SOURCE}/RCLONE_ERROR "
-                f"--config {RCLONE_CFG}"
-            )
+        #     return (
+        #         "rclone check "
+        #         f"{path} "
+        #         f"{DEST_REMOTE}:{DEST_ROOT}/data/{Path(path).name} "
+        #         f"--differ {SOURCE}/RCLONE_DIFFER "
+        #         f"--error {SOURCE}/RCLONE_ERROR "
+        #         f"--config {RCLONE_CFG}"
+        #     )
 
+        data_paths, output_paths = list_new_dir()
 
-        discover >> [transfer_data, transfer_output] >> verify
+        transfer_data_task = transfer_data.expand(path=data_paths)
+        transfer_output_task = transfer_output.expand(path=output_paths)
+
+        [transfer_data_task, transfer_output_task]       
         
         return dag
 
