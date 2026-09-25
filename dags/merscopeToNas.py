@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import yaml
 import os
-import subprocess as sub
 from pathlib import Path
 import logging
 
@@ -25,10 +23,14 @@ DEFAULT_ARGS = {
     # "execution_timeout": pendulum.duration(hours=6),
 }
 
+# Literals
+DATA_PATHS_LITERAL = "data_paths" 
+OUTPUT_PATHS_LITERAL = "output_paths"
+
 logger = logging.getLogger(__name__)
 
 
-def build_transfer_dag(cfg:dict):
+def build_transfer_dag(cfg:dict): # written this way to turn this into a factory
 
     WORKER_NAME = cfg['WORKER_NAME']
     SOURCE = cfg['SOURCE_ROOT']
@@ -46,20 +48,34 @@ def build_transfer_dag(cfg:dict):
         tags=["file-transfer", "merscopeToNas"],
     ) as dag:
 
-        @task(task_id=f"check_for_new_files", queue=f"merscopeToNas_{WORKER_NAME}")
+        @task(
+                task_id=f"check_for_new_files",
+                queue=f"merscopeToNas_{WORKER_NAME}",
+                multiple_outputs=True)
         def list_new_dir():
             """Returns a list names of experiments to transfer."""
             from pathlib import Path
-            data_dirs = Path(f"{SOURCE}/merfish_raw_data").glob("*")
-            outs_dirs = Path(f"{SOURCE}/merfish_output").glob("*")
-            logger.log(logging.INFO, 'testing logging')
+            data_dirs = list(Path(f"{SOURCE}/merfish_raw_data").glob("*"))
+            outs_dirs = list(Path(f"{SOURCE}/merfish_output").glob("*"))
             check = lambda d: (d / "MERSCOPETONAS").exists()
 
+            logger.log(logging.INFO, 'data_dirs\nfolder\tflagged')
+            for p in data_dirs:
+                logger.log(logging.INFO, f'{p}\t{check(p)}')
 
-            return (
-                [{"data_path": d["Path"]} for d in data_dirs if check(d)],
-                [{"output_path": d["Path"]} for d in outs_dirs if check(d)],
-            )
+            return {
+                DATA_PATHS_LITERAL: [str(d) for d in data_dirs if not check(d)],
+                OUTPUT_PATHS_LITERAL: [str(d) for d in outs_dirs if not check(d)]
+            }
+
+        # splitters ####
+        @task
+        def get_data_paths(paths_dict):
+            return paths_dict[DATA_PATHS_LITERAL]
+        @task
+        def get_output_paths(paths_dict):
+            return paths_dict[OUTPUT_PATHS_LITERAL]
+        # splitters ####
 
         @task.bash(task_id="rclone_transfer_data", queue=f"merscopeToNas_{WORKER_NAME}")
         def transfer_data(path):
@@ -76,7 +92,6 @@ def build_transfer_dag(cfg:dict):
             )
 
 
-        
         @task.bash(task_id="rclone_transfer_output", queue=f"merscopeToNas_{WORKER_NAME}")
         def transfer_output(path):
 
@@ -91,33 +106,41 @@ def build_transfer_dag(cfg:dict):
                 f"--config {RCLONE_CFG}"
             )
 
-        # @task.bash(task_id="rclone_verify", queue=f"merscopeToNas_{WORKER_NAME}")
-        # def verify(path):
+        @task.bash(task_id="rclone_verify", queue=f"merscopeToNas_{WORKER_NAME}")
+        def verify():
 
-        #     return (
-        #         "rclone check "
-        #         f"{path} "
-        #         f"{DEST_REMOTE}:{DEST_ROOT}/data/{Path(path).name} "
-        #         f"--differ {SOURCE}/RCLONE_DIFFER "
-        #         f"--error {SOURCE}/RCLONE_ERROR "
-        #         f"--config {RCLONE_CFG}"
-        #     )
+            return (
+                "echo 'This works'"
+                # "rclone check "
+                # f"{path} "
+                # f"{DEST_REMOTE}:{DEST_ROOT}/data/{Path(path).name} "
+                # f"--differ {SOURCE}/RCLONE_DIFFER "
+                # f"--error {SOURCE}/RCLONE_ERROR "
+                # f"--config {RCLONE_CFG}"
+            )
 
-        data_paths, output_paths = list_new_dir()
+        paths = list_new_dir()
+        data_paths = get_data_paths(paths)
+        output_paths = get_output_paths(paths)
 
         transfer_data_task = transfer_data.expand(path=data_paths)
         transfer_output_task = transfer_output.expand(path=output_paths)
+        verify_task = verify()
 
-        [transfer_data_task, transfer_output_task]       
+        [transfer_data_task, transfer_output_task] >> verify_task
         
         return dag
 
-cfg = {e:os.environ[e] for e in ENV_KEYS}
+cfg = {e:os.environ[e] for e in ENV_KEYS if e != ""}
+if len(cfg) != len(ENV_KEYS):
+    raise EnvironmentError
+
 dags = build_transfer_dag(cfg)
 
 if __name__ == "__main__":
-    for dag in build_transfer_dag():
-        dag.test()
+    for _cfg in [cfg]: # Here in case I want to turn this into a factory
+        dag = build_transfer_dag(_cfg)
+        print(dag)
     # print(
     # f"rclone copy "
     # f". "
